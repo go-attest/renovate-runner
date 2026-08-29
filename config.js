@@ -148,6 +148,24 @@ module.exports = {
 
   packageRules: [
     {
+      // A library that breaks is one library. A toolchain that breaks is every
+      // architecture at once, and the failure is not in the change: it is
+      // somewhere else, later, in code nobody touched.
+      //
+      // One is broken today. go1.27.0 miscompiles on loong64 — golang/go#81000,
+      // bisected on real hardware — and go-gfx/gfx fails its loong64 lane on
+      // exactly this bump while its other ten pass. A repository without a
+      // loong64 lane sees nothing and would merge it unattended, because a
+      // toolchain bump counts as a minor gomod update.
+      //
+      // This is set here, on the runner, rather than in each org's preset:
+      // it then holds for every repository this watches, including the ones
+      // that have no preset of their own.
+      matchManagers: ['gomod', 'github-actions'],
+      matchDepNames: ['go'],
+      automerge: false,
+    },
+    {
       matchManagers: ['github-actions'],
       groupName: 'github actions',
       groupSlug: 'github-actions',
