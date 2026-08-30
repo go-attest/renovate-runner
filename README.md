@@ -16,6 +16,22 @@ cost: an app shipped eight releases behind its own renderer, and a co-editing
 library spent a day showing every reader in a session the wrong letters,
 because a two-release-old dependency was never flagged.
 
+## One slice an hour
+
+A token has five thousand API requests an hour, and 685 repositories want far
+more. The first full pass proved it: it reached 32 organisations, hit
+`rate-limit-exceeded` on the 33rd, and exited.
+
+**The failure was not the problem.** It would have been re-run the next day. The
+problem is that it walks the list in the same order every time, so it would
+have died in the same place every time, and **the last 77 organisations would
+never have been looked at at all** — silently, run after run, while the job
+above them kept producing pull requests and looking like it worked.
+
+So each run takes one sixth of the list, on its own hour, with an hour's budget
+to itself. `orgs.js` is the list; `config.js` slices it by `RENOVATE_SLICE`;
+the workflow maps a cron hour to a slice number.
+
 ## Why not the app
 
 Installing the hosted Mend app on an organisation is an OAuth flow a person

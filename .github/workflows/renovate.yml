@@ -2,11 +2,20 @@ name: Renovate
 
 on:
   schedule:
-    # 05:00 UTC, an hour after the other two runners, so three passes do not
-    # contend for the same secondary rate limit.
+    # One slice an hour. A token has five thousand API requests an hour and 685
+    # repositories want more, so each slice gets an hour's budget to itself.
+    # The hours are the slice numbers below; nothing else derives them.
     - cron: '0 5 * * *'
+    - cron: '0 6 * * *'
+    - cron: '0 7 * * *'
+    - cron: '0 8 * * *'
+    - cron: '0 9 * * *'
+    - cron: '0 10 * * *'
   workflow_dispatch:
     inputs:
+      slice:
+        description: Which slice of the org list to run (1-6)
+        default: '1'
       logLevel:
         description: Renovate log level
         default: info
@@ -23,10 +32,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
+      - name: Which slice this run takes
+        id: slice
+        run: |
+          case '${{ github.event.schedule }}' in
+            '0 5 * * *')  n=1 ;;
+            '0 6 * * *')  n=2 ;;
+            '0 7 * * *')  n=3 ;;
+            '0 8 * * *')  n=4 ;;
+            '0 9 * * *')  n=5 ;;
+            '0 10 * * *') n=6 ;;
+            *)            n='${{ inputs.slice }}' ;;
+          esac
+          echo "n=${n:-1}" >> "$GITHUB_OUTPUT"
+          echo "slice ${n:-1} of 6"
+
       - name: Run Renovate
         uses: renovatebot/github-action@v46.2.4
         with:
           configurationFile: config.js
           token: ${{ secrets.RENOVATE_TOKEN }}
         env:
+          RENOVATE_SLICE: ${{ steps.slice.outputs.n }}
           LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
