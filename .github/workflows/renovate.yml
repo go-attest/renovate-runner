@@ -19,6 +19,13 @@ on:
       logLevel:
         description: Renovate log level
         default: info
+      dryRun:
+        description: >-
+          Run without writing anything: no branch, no PR. Use this to prove
+          a slice works after touching the config, since a config fault only
+          ever shows up inside the container.
+        type: boolean
+        default: false
 
 concurrency:
   group: renovate
@@ -56,3 +63,6 @@ jobs:
         env:
           RENOVATE_SLICE: ${{ steps.slice.outputs.n }}
           LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
+          # Empty on a scheduled run, which is a real one. Renovate ignores
+          # the variable when empty; only 'full' suppresses the writes.
+          RENOVATE_DRY_RUN: ${{ inputs.dryRun && 'full' || '' }}
