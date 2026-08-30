@@ -1,64 +1,28 @@
-# renovate-runner
+# renovate-runner — retired
 
-Runs [Renovate](https://docs.renovatebot.com) over the 109 organisations no
-other runner watches — 685 repositories — from one daily GitHub Actions job.
+**Disabled on 2026-08-30.** Every organisation this watched now runs Renovate
+from its own `.github` repository, beside the preset it already held.
 
-## Who watches what
+## Why
 
-| runner | orgs | repos |
-|---|---|---|
-| `go-ruby-stdlib/renovate-runner` | the 205 `go-ruby-*` | ~900 |
-| `go-pdfkit/renovate-runner` | `go-pdfkit`, `go-gfx`, `go-opentype`, `go-widgets` | ~40 |
-| **this one** | **the remaining 109** | **685** |
+It was given a token's whole hourly request budget and still ran out of it. Its
+first full pass reached 32 organisations of 109 and stopped on
+`rate-limit-exceeded`.
 
-Before these existed, nothing watched any of them. That is not a theoretical
-cost: an app shipped eight releases behind its own renderer, and a co-editing
-library spent a day showing every reader in a session the wrong letters,
-because a two-release-old dependency was never flagged.
+The failure was not the problem — it would have been re-run the next day. The
+problem is that it walked the list **in the same order every time**, so it would
+have died in the same place every time, and the last 77 organisations would
+never have been looked at at all. Silently, run after run, while the first 32
+kept opening pull requests and the whole thing kept looking like it worked.
 
-## One slice an hour
+Slicing the list across six hourly runs fixed that, and was a workaround for a
+shape that did not need to exist. One organisation is a few repositories: a run
+over it never comes near five thousand requests. There is nothing to slice,
+nothing to schedule around, and no list of names to keep current when an
+organisation is added — which is the other thing this repository had to carry,
+because `go-*` would have collided with the `go-ruby-*` runner.
 
-A token has five thousand API requests an hour, and 685 repositories want far
-more. The first full pass proved it: it reached 32 organisations, hit
-`rate-limit-exceeded` on the 33rd, and exited.
-
-**The failure was not the problem.** It would have been re-run the next day. The
-problem is that it walks the list in the same order every time, so it would
-have died in the same place every time, and **the last 77 organisations would
-never have been looked at at all** — silently, run after run, while the job
-above them kept producing pull requests and looking like it worked.
-
-So each run takes one sixth of the list, on its own hour, with an hour's budget
-to itself. `orgs.js` is the list; `config.js` slices it by `RENOVATE_SLICE`;
-the workflow maps a cron hour to a slice number.
-
-## Why not the app
-
-Installing the hosted Mend app on an organisation is an OAuth flow a person
-clicks through, and there is no API behind it — 109 times. A token does the
-rest, so a token does.
-
-## What it needs
-
-One secret, `RENOVATE_TOKEN`, a personal access token with `repo` and
-`workflow`. The `workflow` scope is not optional: without it every pull request
-that touches `.github/workflows/*` is refused, and those are the ones the
-`github-actions` manager opens.
-
-## The filter is a list, and that is deliberate
-
-Almost every org here is named `go-something` — and so are the 205 the other
-runner takes. `go-*` would cover both, and two runners would work the same
-repositories. Regenerate the list with `gh api user/orgs --paginate`, minus the
-orgs the other two name.
-
-## The trap that makes a green run do nothing
-
-Renovate pushes as `bot@renovateapp.com` by default, and this account blocks
-pushes that expose a non-noreply email. Left alone, **every branch push is
-rejected and the run still reports success**. `gitAuthor` in `config.js` is what
-stops that.
-
-So a run is not verified by its own green tick. It is verified by there being
-`renovate/*` branches and open pull requests on a repository that had something
-to update.
+The config stays in the history, and so do the two traps written down in it:
+Renovate's default git author makes every branch it writes rejected **while the
+run still reports success**, and a toolchain bump counts as a minor update and
+will merge itself.
