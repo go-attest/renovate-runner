@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Syntax
+        run: node --check config.js
+
+      # The config is validated ALONE, in an empty directory, because that is how
+      # the container sees it. renovatebot/github-action mounts the configuration
+      # file by itself:
+      #
+      #     --volume <configurationFile>:/github-action/config.js
+      #
+      # Nothing else from the checkout comes with it. So a `require('./sibling')`
+      # works here, passes a validator run in the checkout, and still kills every
+      # scheduled run with "FATAL: Error parsing config file" — a message that
+      # names no path and reads like a syntax error. Validating in place would
+      # not catch it. Validating alone does, and says `Cannot find module`.
+      - name: Validate as the container sees it
+        run: |
+          iso="$(mktemp -d)"
+          cp config.js "$iso/"
+          cd "$iso"
+          npx --yes --package renovate@latest renovate-config-validator config.js
